@@ -97,20 +97,29 @@ public class TaskManagementServiceImpl implements TaskManagementService {
         return "Tasks reassigned and old assignments cancelled for reference " + request.getReferenceId();
     }
 
-    @Override
-    public List<TaskManagementDto> fetchTasksByDate(TaskFetchByDateRequest request) {
-        List<TaskManagement> tasks = taskRepository.findByAssigneeIdIn(request.getAssigneeIds());
-        List<TaskManagement> filteredTasks = tasks.stream()
-                .filter(task -> task.getStatus() != TaskStatus.CANCELLED)
-                .filter(task ->
-                        // In window
-                        (task.getTaskDeadlineTime() >= request.getStartDate() && task.getTaskDeadlineTime() <= request.getEndDate())
-                                // or before window but still open
-                                || (task.getTaskDeadlineTime() < request.getStartDate() && task.getStatus() != TaskStatus.COMPLETED)
-                )
-                .collect(Collectors.toList());
-        return taskMapper.modelListToDtoList(filteredTasks);
-    }
+
+@Override
+public List<TaskManagementDto> fetchTasksByDate(TaskFetchByDateRequest request) {
+    List<TaskManagement> tasks = taskRepository.findByAssigneeIdIn(request.getAssigneeIds());
+
+    System.out.println("Total tasks before filtering: " + tasks.size());
+
+    List<TaskManagement> filteredTasks = tasks.stream()
+            .filter(task -> task.getStatus() != TaskStatus.CANCELLED)
+            .filter(task -> {
+                boolean inRange = task.getTaskDeadlineTime() >= request.getStartDate()
+                        && task.getTaskDeadlineTime() <= request.getEndDate();
+                boolean activeBeforeStart = task.getTaskDeadlineTime() < request.getStartDate()
+                        && task.getStatus() != TaskStatus.COMPLETED;
+                return inRange || activeBeforeStart;
+            })
+            .collect(Collectors.toList());
+
+    System.out.println("Total tasks after filtering: " + filteredTasks.size());
+
+    return taskMapper.modelListToDtoList(filteredTasks);
+}
+
 
     @Override
     public void updatePriority(Long taskId, Priority priority) {
